@@ -15,4 +15,12 @@ public interface WeatherService {
             @Query("appid") String apiKey,
             @Query("units") String units
     );
+    @GET("weather")
+    Call<WeatherResponse> getCurrentWeatherByCoordinates(
+            @Query("lat") double latitude,
+            @Query("lon") double longitude,
+            @Query("appid") String apiKey,
+            @Query("units") String units
+    );
+
 }

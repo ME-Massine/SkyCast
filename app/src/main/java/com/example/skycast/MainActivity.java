@@ -20,6 +20,19 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+
 public class MainActivity extends AppCompatActivity {
 
     private EditText etCity;
@@ -30,6 +43,11 @@ public class MainActivity extends AppCompatActivity {
 
     private WeatherService weatherService;
     private final String API_KEY = "1abe763d6413b23a104322a3e8c9e0a8";
+
+    private FloatingActionButton btnLocation;
+    private FusedLocationProviderClient fusedLocationClient;
+
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,8 +63,14 @@ public class MainActivity extends AppCompatActivity {
         tvTemp = findViewById(R.id.tvTemp);
         tvDescription = findViewById(R.id.tvDescription);
         tvExtra = findViewById(R.id.tvExtra);
+        btnLocation = findViewById(R.id.btnLocation);
 
         weatherService = ApiClient.getClient().create(WeatherService.class);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        btnLocation.setOnClickListener(v -> {
+            getWeatherForCurrentLocation();
+        });
 
         btnSearch.setOnClickListener(v -> {
             String city = etCity.getText().toString().trim();
@@ -59,6 +83,71 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void getWeatherForCurrentLocation() {
+
+        // Check permission first
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE
+            );
+            return;
+        }
+
+        // Permission already granted -> get last known location
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        loadWeatherByCoordinates(location.getLatitude(), location.getLongitude());
+                    } else {
+                        Toast.makeText(this,
+                                "Unable to get current location",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this,
+                            "Location error: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted -> try again
+                getWeatherForCurrentLocation();
+            } else {
+                Toast.makeText(this,
+                        "Location permission denied",
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
+    private void loadWeatherByCoordinates(double lat, double lon) {
+
+        if (API_KEY.equals("YOUR_API_KEY_HERE")) {
+            Toast.makeText(this, "Please set your OpenWeather API key in MainActivity", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Call<WeatherResponse> call =
+                weatherService.getCurrentWeatherByCoordinates(lat, lon, API_KEY, "metric");
+
+        executeCall(call);
+    }
+
+
     private void loadWeather(String cityName) {
 
         if (API_KEY.equals("YOUR_API_KEY_HERE")) {
@@ -66,24 +155,24 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        progress.setVisibility(View.VISIBLE);
-
         Call<WeatherResponse> call =
                 weatherService.getCurrentWeather(cityName, API_KEY, "metric");
 
-        // Enqueue means: execute in background thread, and call back on main thread
+        executeCall(call);
+    }
+    private void executeCall(Call<WeatherResponse> call) {
+        progress.setVisibility(View.VISIBLE);
+
         call.enqueue(new Callback<WeatherResponse>() {
             @Override
-            public void onResponse(Call<WeatherResponse> call,
-                                   Response<WeatherResponse> response) {
-
+            public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
                 progress.setVisibility(View.GONE);
 
                 if (response.isSuccessful() && response.body() != null) {
                     bindData(response.body());
                 } else {
                     Toast.makeText(MainActivity.this,
-                            "City not found",
+                            "Weather data not available",
                             Toast.LENGTH_SHORT).show();
                 }
             }
@@ -92,11 +181,14 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call<WeatherResponse> call, Throwable t) {
                 progress.setVisibility(View.GONE);
                 Toast.makeText(MainActivity.this,
-                        "Error: " + t.getMessage(),
+                        "Network error. Please check your internet connection.",
                         Toast.LENGTH_SHORT).show();
             }
         });
     }
+
+
+
 
     private void bindData(WeatherResponse data) {
 
