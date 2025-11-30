@@ -45,27 +45,6 @@ Professional startup animation with fade-in transition.
 
 ---
 
-## 📷 **Screenshots**
-
-> Replace the placeholder paths with your actual emulator screenshots.
-
-```
-/screenshots/splash.png
-/screenshots/home_empty.png
-/screenshots/home_city.png
-/screenshots/location_weather.png
-```
-
-**Example Markdown display:**
-
-```md
-<img src="screenshots/splash.png" width="300" />
-<img src="screenshots/home_city.png" width="300" />
-<img src="screenshots/location_weather.png" width="300" />
-```
-
----
-
 ## 📂 **Project Structure**
 
 ```
